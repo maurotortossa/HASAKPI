@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola Corporativa de Indicadores</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sidebarBg: '#111827',
+                        sidebarHover: '#1f2937',
+                        accentBlue: '#2563eb'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .active-menu {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            border-color: #3b82f6 !important;
+        }
+        /* Scrollbar del panel lateral */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex overflow-hidden">
+
+    <!-- PANEL LATERAL IZQUIERDO (SIDEBAR) -->
+    <aside class="w-80 bg-sidebarBg border-r border-slate-800 flex flex-col justify-between h-screen shrink-0 z-30">
+        
+        <div class="flex flex-col flex-1 overflow-hidden">
+            <!-- Encabezado Corporativo -->
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <!-- Contenedor del Logo con mezcla transparente para remover fondo blanco -->
+                    <div class="w-11 h-11 flex items-center justify-center overflow-hidden shrink-0">
+                        <img src="logo.jpg" alt="Logo" class="w-full h-full object-contain mix-blend-multiply filter contrast-125 brightness-110" onerror="this.onerror=null; this.src='https://placehold.co/44x44/111827/ffffff?text=S'">
+                    </div>
+                    <div class="overflow-hidden">
+                        <h2 class="text-sm font-extrabold tracking-wider text-white uppercase truncate">Indicadores</h2>
+                        <p class="text-[10px] text-slate-400 font-medium">Consola Única Integrada</p>
+                    </div>
+                </div>
+                <!-- Menú de opciones de guardado e importación física -->
+                <div class="flex items-center gap-1">
+                    <button onclick="exportBackup()" title="Exportar Copia de Seguridad (.json)" class="text-slate-500 hover:text-emerald-400 transition p-1.5 hover:bg-slate-800 rounded-lg">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                    </button>
+                    <label title="Importar Copia de Seguridad" class="text-slate-500 hover:text-blue-400 transition p-1.5 hover:bg-slate-800 rounded-lg cursor-pointer">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        <input type="file" id="backup-file" accept=".json" class="hidden" onchange="importBackup(event)">
+                    </label>
+                    <button onclick="resetToFactory()" title="Restaurar / Limpiar Todo" class="text-slate-500 hover:text-rose-400 transition p-1.5 hover:bg-slate-800 rounded-lg">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Listado de Indicadores Activos -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div>
+                    <span class="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Mis Tableros</span>
+                    <nav id="indicators-container" class="space-y-1.5">
+                        <!-- Cargados mediante Javascript desde localStorage -->
+                    </nav>
+                    <!-- Estado vacío en el sidebar -->
+                    <div id="sidebar-empty-state" class="hidden text-center py-8 px-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/10">
+                        <i data-lucide="folder-open" class="w-8 h-8 text-slate-600 mx-auto mb-2"></i>
+                        <p class="text-[11px] text-slate-500 font-medium">No hay indicadores cargados todavía.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botonera de Acción Inferior -->
+        <div class="p-4 border-t border-slate-800 bg-slate-950/40 space-y-2">
+            <button onclick="openModal()" class="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 transition duration-200">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Añadir Nuevo Indicador</span>
+            </button>
+            <div class="text-[10px] text-slate-500 text-center font-medium pt-1">
+                Panel Consolidado Autogestionado
+            </div>
+        </div>
+    </aside>
+
+    <!-- ÁREA DE CONTENIDO (VISUALIZADOR GENERAL) -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-slate-900">
+        <!-- Pantalla de transición (Loader) -->
+        <div id="loading-overlay" class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3 transition-opacity duration-200 pointer-events-none opacity-0">
+            <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span class="text-xs font-bold text-slate-400 tracking-wide uppercase">Inyectando Entorno...</span>
+        </div>
+
+        <!-- Vista sin indicadores seleccionados / cargados -->
+        <div id="main-empty-state" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-slate-950">
+            <div class="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4 shadow-xl">
+                <i data-lucide="layout" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Ningún Indicador Activo</h3>
+            <p class="text-xs text-slate-400 max-w-sm mb-6">Agrega tus reportes en formato HTML o introduce una URL para unificar toda tu información corporativa en un solo lugar.</p>
+            <button onclick="openModal()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-650 hover:bg-blue-600 text-white transition shadow-lg shadow-blue-900/20">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Cargar Primer Indicador</span>
+            </button>
+        </div>
+
+        <!-- Contenedor del Iframe Dinámico Principal -->
+        <div class="w-full h-full bg-slate-950">
+            <iframe id="dashboard-frame" src="about:blank" class="w-full h-full border-none" sandbox="allow-scripts allow-downloads allow-same-origin allow-modals"></iframe>
+        </div>
+    </main>
+
+    <!-- MODAL PARA AGREGAR NUEVO INDICADOR PERSONALIZADO -->
+    <div id="add-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden transform scale-95 transition-all duration-300">
+            
+            <!-- Header -->
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">Nuevo Indicador</h3>
+                        <p class="text-[11px] text-slate-400 font-medium">Inserta un archivo HTML independiente o una URL externa</p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-lg transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Formulario de carga de datos -->
+            <div class="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Título del Indicador *</label>
+                        <input type="text" id="new-title" placeholder="Ej: Control de Ensayos" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Área / Subtítulo *</label>
+                        <input type="text" id="new-subtitle" placeholder="Ej: Aseguramiento de Calidad" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícono Representativo</label>
+                        <select id="new-icon" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                            <option value="activity">Gráfico Actividad (Pulse)</option>
+                            <option value="shield-check">Seguridad / Habilitaciones (Shield)</option>
+                            <option value="gauge">Instrumentos / Medición (Gauge)</option>
+                            <option value="wrench">Mantenimiento y Reparaciones (Wrench)</option>
+                            <option value="users">Fuerza Laboral (Users)</option>
+                            <option value="cpu">Procesos de TI (CPU)</option>
+                            <option value="clipboard-list">Auditorías e Informes (Clipboard)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tipo de Integración</label>
+                        <select id="new-type" onchange="toggleFormInputs()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                            <option value="code">Pegar Código HTML Completo</option>
+                            <option value="url">Vincular Dirección URL o Archivo Físico</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Campo para URLs -->
+                <div id="url-input-group" class="hidden">
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ruta del archivo u URL del Servidor</label>
+                    <input type="text" id="new-url" placeholder="Ej: http://sistema.local/index.html o report_calidad.html" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition">
+                </div>
+
+                <!-- Campo para Código Completo -->
+                <div id="code-input-group" class="flex flex-col flex-1">
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Pega el código HTML completo aquí</label>
+                    <textarea id="new-code" rows="12" placeholder="Pega el código completo comenzando desde <!DOCTYPE html>..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder-slate-700 font-mono text-[10px] focus:outline-none focus:border-blue-500 transition resize-none flex-1 min-h-[220px]"></textarea>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950/50 flex items-center justify-end gap-3">
+                <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    Cancelar
+                </button>
+                <button onclick="saveIndicator()" class="px-5 py-2.5 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 shadow-lg shadow-emerald-900/10 transition">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>Guardar Indicador</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE ALERTAS TOAST -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- PERSISTENCIA INTEGRAL DE INDICADORES -->
+    <script>
+        let currentActiveId = null;
+
+        // Recuperar la base de datos de localStorage
+        function getCustomIndicators() {
+            try {
+                return JSON.parse(localStorage.getItem('custom_bi_dashboards')) || [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // Guardar la base de datos a localStorage
+        function saveCustomIndicators(list) {
+            localStorage.setItem('custom_bi_dashboards', JSON.stringify(list));
+        }
+
+        // Renderizar el menú del sidebar
+        function renderSidebar() {
+            const container = document.getElementById('indicators-container');
+            const emptyState = document.getElementById('sidebar-empty-state');
+            container.innerHTML = '';
+
+            const customs = getCustomIndicators();
+
+            if (customs.length > 0) {
+                emptyState.classList.add('hidden');
+                customs.forEach(dash => {
+                    const button = createMenuButton(dash);
+                    container.appendChild(button);
+                });
+            } else {
+                emptyState.classList.remove('hidden');
+            }
+
+            lucide.createIcons();
+        }
+
+        // Crear elemento de botón para el menú
+        function createMenuButton(dash) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "group relative w-full flex items-center justify-between p-3 rounded-xl transition-all border border-transparent bg-slate-900/40 hover:bg-sidebarHover text-slate-300 hover:text-white cursor-pointer select-none";
+            wrapper.id = `btn-${dash.id}`;
+
+            wrapper.onclick = (e) => {
+                if (e.target.closest('.delete-indicator-btn')) return;
+                loadDashboard(dash.id);
+            };
+
+            wrapper.innerHTML = `
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 group-hover:text-white transition shrink-0">
+                        <i data-lucide="${dash.icon || 'layout'}" class="w-4 h-4"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <h4 class="text-[12px] font-bold text-white truncate">${dash.title}</h4>
+                        <p class="text-[10px] text-slate-500 font-medium truncate group-hover:text-slate-400">${dash.subtitle}</p>
+                    </div>
+                </div>
+                <button class="delete-indicator-btn opacity-0 group-hover:opacity-100 p-1 bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white rounded-md transition duration-150 ml-2" onclick="deleteCustomIndicator('${dash.id}')" title="Eliminar este Indicador">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+            return wrapper;
+        }
+
+        // Cargar indicador en el iframe principal
+        function loadDashboard(id) {
+            const overlay = document.getElementById('loading-overlay');
+            const mainEmptyState = document.getElementById('main-empty-state');
+            overlay.classList.remove('opacity-0');
+
+            // Actualizar estilo del menú lateral
+            const buttons = document.querySelectorAll('#indicators-container > div');
+            buttons.forEach(btn => btn.classList.remove('active-menu'));
+
+            const activeBtn = document.getElementById(`btn-${id}`);
+            if (activeBtn) activeBtn.classList.add('active-menu');
+
+            currentActiveId = id;
+
+            const target = getCustomIndicators().find(d => d.id === id);
+            const iframe = document.getElementById('dashboard-frame');
+
+            if (!target) {
+                iframe.src = "about:blank";
+                mainEmptyState.classList.remove('hidden');
+                overlay.classList.add('opacity-0');
+                return;
+            }
+
+            mainEmptyState.classList.add('hidden');
+
+            if (target.type === "code") {
+                try {
+                    const blob = new Blob([target.code], { type: 'text/html' });
+                    const blobURL = URL.createObjectURL(blob);
+                    iframe.src = blobURL;
+                } catch(err) {
+                    iframe.srcdoc = target.code; // Fallback
+                }
+            } else {
+                iframe.src = target.code; // URL directa
+            }
+
+            iframe.onload = () => {
+                overlay.classList.add('opacity-0');
+            };
+        }
+
+        // =========================================================================
+        // 4. ACCIONES DEL MODAL DE EDICIÓN Y CREACIÓN
+        // =========================================================================
+
+        function openModal() {
+            const modal = document.getElementById('add-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.querySelector('div').classList.remove('scale-95');
+            }, 10);
+            toggleFormInputs();
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('add-modal');
+            modal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+
+            // Resetear inputs del formulario
+            document.getElementById('new-title').value = '';
+            document.getElementById('new-subtitle').value = '';
+            document.getElementById('new-url').value = '';
+            document.getElementById('new-code').value = '';
+        }
+
+        function toggleFormInputs() {
+            const type = document.getElementById('new-type').value;
+            const codeGroup = document.getElementById('code-input-group');
+            const urlGroup = document.getElementById('url-input-group');
+
+            if (type === "code") {
+                codeGroup.classList.remove('hidden');
+                urlGroup.classList.add('hidden');
+            } else {
+                codeGroup.classList.add('hidden');
+                urlGroup.classList.remove('hidden');
+            }
+        }
+
+        // Registrar indicador y guardarlo de forma persistente
+        function saveIndicator() {
+            const title = document.getElementById('new-title').value.trim();
+            const subtitle = document.getElementById('new-subtitle').value.trim();
+            const icon = document.getElementById('new-icon').value;
+            const type = document.getElementById('new-type').value;
+
+            if (!title || !subtitle) {
+                showToastNotification("Por favor completa los campos requeridos (*)", "danger");
+                return;
+            }
+
+            let sourceVal = "";
+            if (type === "code") {
+                sourceVal = document.getElementById('new-code').value;
+                if (!sourceVal.trim()) {
+                    showToastNotification("Ingresa el código HTML del reporte.", "danger");
+                    return;
+                }
+            } else {
+                sourceVal = document.getElementById('new-url').value.trim();
+                if (!sourceVal) {
+                    showToastNotification("Ingresa una URL o dirección física.", "danger");
+                    return;
+                }
+            }
+
+            const newObj = {
+                id: "custom-module-" + Date.now(),
+                title: title,
+                subtitle: subtitle,
+                icon: icon,
+                code: sourceVal,
+                type: type
+            };
+
+            const customs = getCustomIndicators();
+            customs.push(newObj);
+            saveCustomIndicators(customs);
+
+            renderSidebar();
+            closeModal();
+            showToastNotification("Indicador guardado permanentemente en el navegador", "success");
+
+            loadDashboard(newObj.id);
+        }
+
+        // Eliminar indicador de la persistencia
+        function deleteCustomIndicator(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar este indicador de tu consola?")) {
+                let customs = getCustomIndicators();
+                customs = customs.filter(d => d.id !== id);
+                saveCustomIndicators(customs);
+                renderSidebar();
+                showToastNotification("Indicador removido", "info");
+
+                if (currentActiveId === id) {
+                    currentActiveId = null;
+                    const iframe = document.getElementById('dashboard-frame');
+                    iframe.src = "about:blank";
+                    document.getElementById('main-empty-state').classList.remove('hidden');
+                }
+            }
+        }
+
+        // Limpieza de todos los datos locales
+        function resetToFactory() {
+            if (confirm("¿Estás seguro de que deseas borrar absolutamente todos los indicadores cargados? Esta acción no se puede deshacer.")) {
+                localStorage.removeItem('custom_bi_dashboards');
+                currentActiveId = null;
+                const iframe = document.getElementById('dashboard-frame');
+                iframe.src = "about:blank";
+                document.getElementById('main-empty-state').classList.remove('hidden');
+                renderSidebar();
+                showToastNotification("Consola vaciada correctamente.", "info");
+            }
+        }
+
+        // =========================================================================
+        // 5. RESPALDOS FÍSICOS (EXPORTAR / IMPORTAR CONFIGURACIÓN)
+        // =========================================================================
+
+        // Exportar toda tu base de indicadores en un único archivo JSON
+        function exportBackup() {
+            const list = getCustomIndicators();
+            if (list.length === 0) {
+                showToastNotification("No tienes ningún indicador para exportar.", "danger");
+                return;
+            }
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(list, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "Copia_Seguridad_Indicadores.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToastNotification("Copia de seguridad exportada con éxito", "success");
+        }
+
+        // Importar un archivo JSON con indicadores
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedList = JSON.parse(e.target.result);
+                    if (Array.isArray(importedList)) {
+                        // Unificar lo importado con los existentes o sobreescribir según confirmación
+                        if (confirm("¿Deseas fusionar estos indicadores con tus indicadores actuales? (Selecciona cancelar para sobreescribir)")) {
+                            const current = getCustomIndicators();
+                            const combined = [...current, ...importedList];
+                            saveCustomIndicators(combined);
+                        } else {
+                            saveCustomIndicators(importedList);
+                        }
+                        renderSidebar();
+                        showToastNotification("Indicadores restaurados con éxito.", "success");
+                        if (importedList.length > 0) {
+                            loadDashboard(importedList[0].id);
+                        }
+                    } else {
+                        showToastNotification("El archivo de copia de seguridad no es válido.", "danger");
+                    }
+                } catch(err) {
+                    showToastNotification("Error al leer el archivo JSON.", "danger");
+                }
+            };
+            reader.readAsText(file);
+            // Limpiar input
+            event.target.value = '';
+        }
+
+        // Notificaciones Flotantes Corporativas
+        function showToastNotification(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let baseStyles = "px-4 py-3 rounded-xl text-xs font-bold shadow-2xl border flex items-center gap-2 transform translate-y-5 opacity-0 transition duration-300 pointer-events-auto cursor-pointer";
+            let typeStyles = {
+                success: "bg-emerald-950/95 text-emerald-400 border-emerald-800",
+                danger: "bg-rose-950/95 text-rose-400 border-rose-800",
+                info: "bg-slate-900/95 text-slate-300 border-slate-700"
+            };
+
+            toast.className = `${baseStyles} ${typeStyles[type] || typeStyles.info}`;
+            toast.innerHTML = `<i data-lucide="bell" class="w-4 h-4"></i> <span>${message}</span>`;
+            
+            toast.onclick = () => { toast.remove(); };
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-5', 'opacity-0');
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 4000);
+        }
+
+        // Inicialización al arrancar
+        window.addEventListener('DOMContentLoaded', () => {
+            renderSidebar();
+            const customs = getCustomIndicators();
+            if (customs.length > 0) {
+                loadDashboard(customs[0].id);
+            }
+        });
+    </script>
+</body>
+</html>
