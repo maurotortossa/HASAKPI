@@ -23,8 +23,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- LZ-String para compresión de datos de compartición -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
-    <!-- QRious para generación offline local de códigos QR en Canvas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body {
@@ -74,28 +72,29 @@
                 </button>
             </div>
 
-            <!-- Panel de Compartición Dinámica y Nube -->
+            <!-- Panel de Herramientas de Publicación y Respaldo -->
             <div class="p-4 mx-4 mt-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
                 <div class="flex items-center justify-between">
                     <span class="text-[9px] font-extrabold uppercase tracking-widest text-emerald-400 flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>Soporte de Guardado Activo</span>
+                        <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="sync-text">Sincronizado con la Nube</span>
                     </span>
                 </div>
                 
                 <div class="space-y-1.5">
-                    <button onclick="openShareModal()" class="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition shadow-md shadow-indigo-950/50">
-                        <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
-                        <span>Generar Enlace / Ver QR</span>
+                    <!-- Botón para Publicar Cambios de manera global -->
+                    <button onclick="publishChangesToCloud()" class="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition shadow-lg shadow-blue-900/20">
+                        <i data-lucide="cloud-lightning" class="w-4 h-4 animate-bounce"></i>
+                        <span>Publicar Cambios en la Web</span>
                     </button>
                     
                     <!-- Herramientas de Importación/Exportación física de copias en JSON -->
-                    <div class="grid grid-cols-2 gap-1.5">
-                        <button onclick="exportConfig()" title="Exportar indicadores en un archivo local para compartir" class="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold transition border border-slate-700">
+                    <div class="grid grid-cols-2 gap-1.5 pt-1">
+                        <button onclick="exportConfig()" title="Exportar indicadores en un archivo local para compartir" class="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-semibold transition border border-slate-700">
                             <i data-lucide="download-cloud" class="w-3.5 h-3.5 text-blue-400"></i>
                             <span>Exportar JSON</span>
                         </button>
-                        <button onclick="triggerImportFileInput()" title="Subir un archivo de indicadores exportado" class="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold transition border border-slate-700">
+                        <button onclick="triggerImportFileInput()" title="Subir un archivo de indicadores exportado" class="flex items-center justify-center gap-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-semibold transition border border-slate-700">
                             <i data-lucide="upload-cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
                             <span>Importar JSON</span>
                         </button>
@@ -248,61 +247,9 @@
         </div>
     </div>
 
-    <!-- MODAL DE COMPARTIDO INTELIGENTE (CÓDIGO QR REAL OFFLINE + GENERACIÓN DE ENLACE CORTO) -->
-    <div id="share-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm hidden">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl overflow-hidden transform scale-95 transition-all duration-300">
-            
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div class="flex items-center gap-2 text-indigo-400">
-                    <i data-lucide="share-2" class="w-5 h-5"></i>
-                    <h3 class="text-sm font-bold text-white">Compartir Consola de Indicadores</h3>
-                </div>
-                <button onclick="closeShareModal()" class="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-md">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-            </div>
-
-            <div class="flex flex-col items-center gap-4 text-center">
-                <!-- Lienzo del Código QR Renderizado Dinámicamente de forma Local -->
-                <div class="p-3 bg-white rounded-xl shadow-lg border border-slate-300 flex items-center justify-center">
-                    <canvas id="share-qr-canvas" class="w-40 h-40"></canvas>
-                </div>
-                <div>
-                    <h4 class="text-xs font-bold text-slate-300">¡Comparte por Escaneo o Enlace!</h4>
-                    <p class="text-[10px] text-slate-500 max-w-xs mt-1">Escanea este código QR con la cámara de tu celular, o copia el enlace simplificado para mandarlo por chat.</p>
-                </div>
-            </div>
-
-            <div class="space-y-4 pt-2">
-                <!-- Enlace Corto en la Nube -->
-                <div class="space-y-1.5">
-                    <label class="block text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest">Enlace Corto en la Nube (Recomendado)</label>
-                    <div class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <input type="text" id="share-short-link" readonly class="bg-transparent border-none text-slate-300 focus:outline-none flex-1 text-[11px] font-mono select-all">
-                        <button onclick="copyToClipboard('share-short-link', '¡Enlace corto copiado!')" class="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition duration-150 shrink-0">
-                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Enlace Autónomo de Emergencia -->
-                <div class="space-y-1.5">
-                    <label class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Enlace de Respaldo Directo (Offline)</label>
-                    <div class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <input type="text" id="share-full-link" readonly class="bg-transparent border-none text-slate-500 focus:outline-none flex-1 text-[10px] font-mono select-all truncate">
-                        <button onclick="copyToClipboard('share-full-link', '¡Enlace de emergencia copiado!')" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition duration-150 shrink-0">
-                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </div>
-                    <p class="text-[9px] text-slate-600">Este enlace contiene toda tu base de datos comprimida de forma offline.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL DE CONFIRMACIÓN CORPORATIVA PERSONALIZADO (CERO ALERT O CONFIRMS) -->
     <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm hidden">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl transform scale-95 transition-all duration-200">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl transform scale-95 transition-all duration-300">
             <div class="flex items-center gap-3 text-rose-500">
                 <i data-lucide="alert-triangle" class="w-6 h-6"></i>
                 <h3 class="text-sm font-bold text-white" id="confirm-title">¿Estás seguro?</h3>
@@ -320,13 +267,13 @@
 
     <!-- CÓDIGOS FUENTES PREINSTALADOS (SOLDADORES Y EQUIPOS OFICIALES) -->
     <script>
-        // Los dos dashboards oficiales embebidos como base por defecto
+        // Primer dashboard oficial (Estado de Soldadores)
         const defaultCodeSoldadores = `<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estado de Soldadores</title>
+    <title>[ESTADO DE SOLDADORES-CORPORATIVO]</title>
     <script src="https://cdn.tailwindcss.com"><\/script>
     <script src="https://unpkg.com/lucide@latest"><\/script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>
@@ -486,11 +433,11 @@
                 const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 if (rows.length > 0) {
                     dataset = rows.map((r, i) => ({
-                        id: r.ID || r.id || "S-" + (100 + i),
-                        name: r.Nombre || r.Soldador || r.name || "Soldador " + i,
-                        process: r.Proceso || r.Norma || "GTAW",
-                        spec: r.Especialidad || "General",
-                        expiry: r.FechaVencimiento || r.expiry || "2026-12-31"
+                        id: r.ID || r.id || \"S-\" + (100 + i),
+                        name: r.Nombre || r.Soldador || r.name || \"Soldador \" + i,
+                        process: r.Proceso || r.Norma || \"GTAW\",
+                        spec: r.Especialidad || \"General\",
+                        expiry: r.FechaVencimiento || r.expiry || \"2026-12-31\"
                     }));
                     refresh();
                 }
@@ -534,6 +481,7 @@
 </body>
 </html>`;
 
+        // Segundo dashboard oficial (Equipos de Medición)
         const defaultCodeEquipos = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -690,12 +638,12 @@
                 const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 if (rawRows.length > 0) {
                     rawData = rawRows.map((r, index) => ({
-                        code: r.Codigo || r.Code || "EQ-" + (100 + index),
-                        name: r.Nombre || r.Equipo || "Instrumento " + index,
-                        brand: r.Marca || "Genérico",
-                        dept: r.Departamento || "General",
-                        next: r.ProximaCalibracion || "2026-12-31",
-                        status: r.Estado || "Calibrado"
+                        code: r.Codigo || r.Code || \"EQ-\" + (100 + index),
+                        name: r.Nombre || r.Equipo || \"Instrumento \" + index,
+                        brand: r.Marca || \"Genérico\",
+                        dept: r.Departamento || \"General\",
+                        next: r.ProximaCalibracion || \"2026-12-31\",
+                        status: r.Estado || \"Calibrado\"
                     }));
                     refresh();
                 }
@@ -745,6 +693,10 @@
         let realtimeIndicators = [];
         let currentActiveId = null;
 
+        // Bucket fijo y único para tu repositorio HASAKPI
+        const FIXED_BUCKET = "hasakpi_corporativo_58291";
+        const FIXED_KEY = "indicators_production";
+
         function showGlobalLoader(text) {
             const overlay = document.getElementById('loading-overlay');
             document.getElementById('loading-text').innerText = text;
@@ -756,28 +708,60 @@
             overlay.classList.add('opacity-0', 'pointer-events-none');
         }
 
-        async function getOrCreateBucketId() {
-            let bucketId = localStorage.getItem('kvdb_bucket_id');
-            if (!bucketId) {
-                try {
-                    const response = await fetch('https://kvdb.io', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: 'email=anon_dashboards_kvdb@gmail.com'
-                    });
-                    if (response.ok) {
-                        bucketId = await response.text();
-                        bucketId = bucketId.trim();
-                        localStorage.setItem('kvdb_bucket_id', bucketId);
-                    }
-                } catch (e) {
-                    console.error("Error al crear bucket en la nube:", e);
-                }
+        // Publicar los cambios realizados localmente para que todo el mundo los vea de manera fija
+        async function publishChangesToCloud() {
+            if (realtimeIndicators.length === 0) {
+                showToastNotification("Agrega al menos un indicador antes de publicar.", "danger");
+                return;
             }
-            return bucketId;
+
+            showGlobalLoader("Publicando cambios en el servidor...");
+
+            const rawJson = JSON.stringify(realtimeIndicators);
+            const compressedBase64 = LZString.compressToBase64(rawJson);
+
+            try {
+                const response = await fetch(`https://kvdb.io/${FIXED_BUCKET}/${FIXED_KEY}`, {
+                    method: 'POST',
+                    body: compressedBase64
+                });
+
+                if (response.ok) {
+                    showToastNotification("¡Cambios publicados! Todos los destinatarios verán ahora tu versión actualizada.", "success");
+                } else {
+                    showToastNotification("Ocurrió un error al guardar en la nube.", "danger");
+                }
+            } catch (e) {
+                console.error(e);
+                showToastNotification("Error de red. Verifica tu conexión de internet.", "danger");
+            } finally {
+                hideGlobalLoader();
+            }
         }
 
-        // Abrir ventana para compartir
+        // Cargar desde la nube el archivo guardado por el administrador
+        async function fetchChangesFromCloud() {
+            try {
+                const response = await fetch(`https://kvdb.io/${FIXED_BUCKET}/${FIXED_KEY}`);
+                if (response.ok) {
+                    const compressed = await response.text();
+                    if (compressed && compressed.trim() !== "") {
+                        const decompressed = LZString.decompressFromBase64(compressed);
+                        const loaded = JSON.parse(decompressed);
+                        if (Array.isArray(loaded) && loaded.length > 0) {
+                            realtimeIndicators = loaded;
+                            saveLocalIndicators(); // Actualizar cache local
+                            return true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Fallo temporal de lectura en la nube, usando copia local offline.", e);
+            }
+            return false;
+        }
+
+        // Abrir ventana para compartir de manera manual
         async function openShareModal() {
             if (realtimeIndicators.length === 0) {
                 showToastNotification("Agrega al menos un indicador antes de compartir.", "danger");
@@ -797,17 +781,13 @@
             let finalShortLink = fullDirectLink; 
 
             try {
-                const bucketId = await getOrCreateBucketId();
                 const randomKey = Math.random().toString(36).substring(2, 8); 
-
-                if (bucketId) {
-                    const storeResponse = await fetch(`https://kvdb.io/${bucketId}/${randomKey}`, {
-                        method: 'POST',
-                        body: compressedBase64
-                    });
-                    if (storeResponse.ok) {
-                        finalShortLink = `${baseUrl}?b=${bucketId}&k=${randomKey}`;
-                    }
+                const storeResponse = await fetch(`https://kvdb.io/${FIXED_BUCKET}/${randomKey}`, {
+                    method: 'POST',
+                    body: compressedBase64
+                });
+                if (storeResponse.ok) {
+                    finalShortLink = `${baseUrl}?b=${FIXED_BUCKET}&k=${randomKey}`;
                 }
             } catch (err) {
                 console.warn("Fallo de la nube temporal. Usando enlace offline completo.", err);
@@ -1066,7 +1046,7 @@
 
             realtimeIndicators.push(newIndicator);
             saveLocalIndicators();
-            showToastNotification("Indicador guardado localmente con éxito.", "success");
+            showToastNotification("Indicador guardado localmente. Recuerda presionar 'Publicar Cambios' para guardarlo en la web.", "success");
             loadDashboard(newDocId);
             closeModal();
         }
@@ -1074,7 +1054,7 @@
         function deleteIndicator(id) {
             realtimeIndicators = realtimeIndicators.filter(d => d.id !== id);
             saveLocalIndicators();
-            showToastNotification("Indicador eliminado.", "info");
+            showToastNotification("Indicador eliminado localmente.", "info");
             autoSelectDashboard();
         }
 
@@ -1128,7 +1108,7 @@
                         realtimeIndicators = validatedList;
                         saveLocalIndicators();
                         autoSelectDashboard();
-                        showToastNotification("¡Configuración importada e inyectada con éxito!", "success");
+                        showToastNotification("¡Configuración importada con éxito! Recuerda 'Publicar' para que se guarde online.", "success");
                     } else {
                         showToastNotification("El archivo JSON no contiene indicadores procesables.", "danger");
                     }
@@ -1215,7 +1195,7 @@
         function confirmDelete(id) {
             showConfirmationDialog(
                 "¿Eliminar Indicador?", 
-                "Esta acción quitará permanentemente el reporte de esta consola local.",
+                "Esta acción quitará el indicador de tu consola. Presiona 'Publicar' para que se guarde de forma definitiva en la web.",
                 () => { deleteIndicator(id); }
             );
         }
@@ -1223,7 +1203,7 @@
         function confirmResetToFactory() {
             showConfirmationDialog(
                 "¿Restablecer Consola?", 
-                "Se eliminarán todos los indicadores de esta sesión de forma permanente.",
+                "Se eliminarán todos los indicadores de esta sesión. Recuerda exportar tu configuración a JSON si deseas conservarlos.",
                 () => {
                     realtimeIndicators = [];
                     saveLocalIndicators();
@@ -1266,9 +1246,15 @@
             const k = urlParams.get('k'); // Key de reporte en la nube
             const data = urlParams.get('data'); // Datos integrados comprimidos
 
-            if (b && k) {
+            // Paso 1: Intentar leer desde la nube la clave maestra de producción
+            showGlobalLoader("Conectando con la base de datos en la nube...");
+            const cloudLoaded = await fetchChangesFromCloud();
+
+            if (cloudLoaded) {
+                showToastNotification("Indicadores descargados y sincronizados en tiempo real.", "success");
+            } else if (b && k) {
+                // Leer un enlace corto con clave específica
                 try {
-                    showGlobalLoader("Descargando indicadores de la nube...");
                     const response = await fetch(`https://kvdb.io/${b}/${k}`);
                     if (response.ok) {
                         const compressed = await response.text();
@@ -1277,20 +1263,14 @@
                         if (Array.isArray(loaded)) {
                             realtimeIndicators = loaded;
                             saveLocalIndicators();
-                            showToastNotification("Consola importada desde la nube con éxito.", "success");
+                            showToastNotification("Consola importada desde enlace temporal.", "success");
                         }
-                    } else {
-                        showToastNotification("No se encontró el reporte en la nube. Cargando copia de fábrica.", "danger");
-                        installDefaultDashboards();
                     }
                 } catch(e) {
-                    console.error("Fallo de red al conectar a la nube:", e);
-                    showToastNotification("Error de red. Cargando copia de fábrica.", "danger");
-                    installDefaultDashboards();
-                } finally {
-                    hideGlobalLoader();
+                    console.error(e);
                 }
             } else if (data) {
+                // Descomprimir desde parámetro directo
                 try {
                     const decompressed = LZString.decompressFromEncodedURIComponent(data);
                     const loaded = JSON.parse(decompressed);
@@ -1300,13 +1280,11 @@
                         showToastNotification("Consola cargada desde enlace comprimido.", "success");
                     }
                 } catch(e) {
-                    console.error("Error al descomprimir URL", e);
-                    showToastNotification("Enlace corrupto o inválido. Cargando copia de fábrica.", "danger");
-                    installDefaultDashboards();
+                    console.error(e);
                 }
             } else {
+                // Carga offline o por defecto primera vez
                 loadLocalIndicators();
-                // Si no hay indicadores locales guardados en el navegador, instalar los oficiales automáticamente
                 if (realtimeIndicators.length === 0) {
                     installDefaultDashboards();
                 }
@@ -1314,6 +1292,7 @@
 
             renderSidebar();
             autoSelectDashboard();
+            hideGlobalLoader();
             lucide.createIcons();
         });
     </script>
